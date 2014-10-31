@@ -2,96 +2,106 @@
 use warnings;
 use strict;
 
-# Imports (core)
-use Pod::Usage;
-use Getopt::Long;
+LaTeX::BibKeys::run();
 
-# Variables
-my $columns = 1;
-my %keys;
+INIT {
+    package LaTeX::BibKeys;
+    our $VERSION = 0.001;
 
-parseOpts();
-$columns = 0 unless canUseColumns();
-my $keyRefs = generateKeys();
-output($keyRefs, $columns);
+    # Imports (core)
+    use Pod::Usage;
+    use Getopt::Long;
 
-# Parse command line options.
-#
-# If user wants --help, this will bail out with a usage message. If not, this
-# function returns a boolean: whether to output in columns.
-sub parseOpts {
-    my $help = 0;
+    # Variables
+    my $columns = 1;
+    my %keys;
 
-    GetOptions(
-        "help|h" => \$help,
-        "columns|c" => \$columns,
-        "nocolumns|1" => sub { $columns = 0; }
-    );
-
-    # Bail if we want help
-    if ($help) {
-        pod2usage(-verbose => 0, -exitval => 0);
-        exit;
+    sub run {
+        parseOpts();
+        generateKeys();
+        output();
     }
 
-    return $columns;
-}
+    # Parse command line options.
+    #
+    # If user wants --help, this will bail out with a usage message. If not,
+    # this function returns a boolean: whether to output in columns.
+    sub parseOpts {
+        my $help = 0;
 
-# Check to see if we can output to columns. Returns boolean.
-sub canUseColumns {
-    my $ok = 1;
-    my $hasMod = eval { require Array::Columnize };
-    $ok = 0 unless $hasMod;     # no Array::Columnize
-    $ok = 0 if -p STDOUT;       # outputting to pipe
-    return $ok;
-}
+        GetOptions(
+            "help|h" => \$help,
+            "columns|c" => \$columns,
+            "nocolumns|1" => sub { $columns = 0; }
+        );
 
-# Generate the list of bibliographic keys, and return it as a hash reference.
-sub generateKeys {
-    my @bibs;   # list of bib filenames
-
-    if (@ARGV) {
-        @bibs = @ARGV;
-    } else {
-        @bibs = glob("*.bib");
+        # Bail if we want help
+        if ($help) {
+            pod2usage(-verbose => 0, -exitval => 0);
+            exit;
+        }
     }
 
-    # If filenames on command line, use those; otherwise, glob for .bib files
-    # in the current directory. Exit if we can't find any bib files.
-    if (!@bibs) {
-        warn "No bib files found. Pass filenames as arguments or run this\n";
-        warn "commmand from a directory with at least one .bib file.\n";
-        exit(1);
-    }
+    # Generate the list of bibliographic keys.
+    sub generateKeys {
+        my @bibs;   # list of bib filenames
 
-
-    # Open all of the bib files we found and read them, keeping track of all
-    # of the keys as we go.
-    for my $file (@bibs) {
-        open my $fh, '<:encoding(UTF-8)', $file or die "Can't open $file: $!\n";
-
-        while (<$fh>) {
-            next unless /^@/;           # Only lines starting with @ have keys
-            my ($key) = /^@.*{(.*),/;   # Everything between the brace and comma
-            $keys{$key} = 1 if $key;
+        if (@ARGV) {
+            @bibs = @ARGV;
+        } else {
+            @bibs = glob("*.bib");
         }
 
-        close($fh) or die "Can't close $file: $!\n";
+        # If filenames on command line, use those; otherwise, glob for .bib files
+        # in the current directory. Exit if we can't find any bib files.
+        if (!@bibs) {
+            warn "No bib files found. Pass filenames as arguments or run " .
+                 "this commmand from a directory with at least one .bib file.\n";
+            exit(1);
+        }
+
+
+        # Open all of the bib files we found and read them, keeping track of all
+        # of the keys as we go.
+        for my $file (@bibs) {
+            open my $fh, '<:encoding(UTF-8)', $file or die "Can't open $file: $!\n";
+
+            while (<$fh>) {
+                next unless /^@/;           # Only lines starting with @ have keys
+                my ($key) = /^@.*{(.*),/;   # Everything between the brace and comma
+                                            # dummy closing }, don't mess up my folds
+                $keys{$key} = 1 if $key;
+            }
+
+            close($fh) or die "Can't close $file: $!\n";
+        }
+
+        return \%keys;
     }
 
-    return \%keys;
-}
+    # Output, using processed keys, taking value of columns into account.
+    sub output {
+        $columns = 0 unless canUseColumns();
 
-# Output, using processed keys, taking value of columns into account.
-sub output {
-    if ($columns) {
-        print Array::Columnize::columnize([sort keys %keys]);
-    } else {
-        print "$_\n" for sort keys %keys;
+        if ($columns) {
+            print Array::Columnize::columnize([sort keys %keys]);
+        } else {
+            print "$_\n" for sort keys %keys;
+        }
     }
 
-    exit(0);
+    # Check to see if we can output to columns. Returns boolean.
+    sub canUseColumns {
+        my $ok = 1;
+        my $hasMod = eval { require Array::Columnize };
+        $ok = 0 unless $hasMod;     # no Array::Columnize
+        $ok = 0 if -p STDOUT;       # outputting to pipe
+        return $ok;
+    }
+
 }
+
+
 
 __END__
 
@@ -104,7 +114,7 @@ bibkeys -- print keys from a BibTeX file
 bibkeys [OPTIONS] [FILE1] [FILE2] [...]
 
     --help, -h          Print this help message and exit
-    --columns, -c       Put output in columns
+    --columns, -c       Print output in columns (default behavior)
     --nocolumns, -1     Suppress columns; print one key per line
 
 =head1 DESCRIPTION
