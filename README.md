@@ -17,7 +17,7 @@ bibkeys [OPTIONS] [FILE1] [FILE2] [...]
 
 bibkeys is a simple program to print out the keys of one or more BibTeX files.
 It takes a list of filenames as arguments; if none are provided, it globs the
-current directory for C<.bib> files.
+current directory for `.bib` files.
 
 ## Options
 
@@ -45,7 +45,7 @@ Suppress columnized output; print one key per line.
 This has a soft dependency on Array::Columnize. If you want output in
 columns, formatted to your terminal width, you need it. If the module can't be
 found, the program does the easy thing and defaults to single-column output
-(as if you'd passed C<--nocolumns> on the command line.
+(as if you'd passed `--nocolumns` on the command line.
 
 ## Author
 
