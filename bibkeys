@@ -1,0 +1,180 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+# Imports (core)
+use Pod::Usage;
+use Getopt::Long;
+
+# Version num
+$VERSION = "0.1";
+
+# Variables
+my $columns = 1;
+my %keys;
+
+parseOpts();
+$columns = 0 unless canUseColumns();
+my $keyRefs = generateKeys();
+output($keyRefs, $columns);
+
+# Parse command line options.
+#
+# If user wants --help, this will bail out with a usage message. If not, this
+# function returns a boolean: whether to output in columns.
+sub parseOpts {
+    my $help = 0;
+
+    GetOptions(
+        "help|h" => \$help,
+        "columns|c" => \$columns,
+        "nocolumns|1" => sub { $columns = 0; }
+    );
+
+    # Bail if we want help
+    if ($help) {
+        pod2usage(-verbose => 0, -exitval => 0);
+        exit;
+    }
+
+    return $columns;
+}
+
+# Check to see if we can output to columns. Returns boolean.
+sub canUseColumns {
+    my $ok = 1;
+    my $hasMod = eval { require Array::Columnize };
+    $ok = 0 unless $hasMod;     # no Array::Columnize
+    $ok = 0 if -p STDOUT;       # outputting to pipe
+    return $ok;
+}
+
+# Generate the list of bibliographic keys, and return it as a hash reference.
+sub generateKeys {
+    my @bibs;   # list of bib filenames
+
+    if (@ARGV) {
+        @bibs = @ARGV;
+    } else {
+        @bibs = glob("*.bib");
+    }
+
+    # If filenames on command line, use those; otherwise, glob for .bib files
+    # in the current directory. Exit if we can't find any bib files.
+    if (!@bibs) {
+        warn "No bib files found. Pass filenames as arguments or run this\n";
+        warn "commmand from a directory with at least one .bib file.\n";
+        exit(1);
+    }
+
+
+    # Open all of the bib files we found and read them, keeping track of all
+    # of the keys as we go.
+    for my $file (@bibs) {
+        open my $fh, '<:encoding(UTF-8)', $file or die "Can't open $file: $!\n";
+
+        while (<$fh>) {
+            next unless /^@/;           # Only lines starting with @ have keys
+            my ($key) = /^@.*{(.*),/;   # Everything between the brace and comma
+            $keys{$key} = 1 if $key;
+        }
+
+        close($fh) or die "Can't close $file: $!\n";
+    }
+
+    return \%keys;
+}
+
+# Output, using processed keys, taking value of columns into account.
+sub output {
+    if ($columns) {
+        print Array::Columnize::columnize([sort keys %keys]);
+    } else {
+        print "$_\n" for sort keys %keys;
+    }
+
+    exit(0);
+}
+
+__END__
+
+=head1 NAME
+
+bibkeys -- print keys from a BibTeX file
+
+=head1 SYNOPSIS
+
+bibkeys [OPTIONS] [FILE1] [FILE2] [...]
+
+    --help, -h          Print this help message and exit
+    --columns, -c       Put output in columns
+    --nocolumns, -1     Suppress columns; print one key per line
+
+=head1 DESCRIPTION
+
+bibkeys is a simple program to print out the keys of one or more BibTeX files.
+It takes a list of filenames as arguments; if none are provided, it globs the
+current directory for C<.bib> files.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--help, -h>
+
+Print a help message and exit
+
+=item B<--columns, -c>
+
+Output to columns, auto-formatted to terminal width. Requires
+L<Array::Columnize>; this option will be ignored if this module isn't
+installed. This option is the default.
+
+=item B<--nocolumns, -1>
+
+Suppress columnized output; print one key per line.
+
+=back
+
+=head1 EXIT STATUS
+
+0 on success, 1 if no bib files could be found.
+
+=head1 DEPENDENCIES
+
+This has a soft dependency on L<Array::Columnize>. If you want output in
+columns, formatted to your terminal width, you need it. If the module can't be
+found, the program does the easy thing and defaults to single-column output
+(as if you'd passed C<--nocolumns> on the command line.
+
+=head1 AUTHOR
+
+Michael McClimon, L<< michael@mcclimon.org >>
+
+=head1 BUGS AND LIMITATIONS
+
+Probably lots. This program is written to scratch an itch of mine, and does
+things in the dumbest way possible that still works for my needs. I wouldn't
+be at all surprised if it didn't work on Windows.
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright (c) 2014 Michael McClimon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
