@@ -6,9 +6,6 @@ use strict;
 use Pod::Usage;
 use Getopt::Long;
 
-# Version num
-$VERSION = "0.1";
-
 # Variables
 my $columns = 1;
 my %keys;
